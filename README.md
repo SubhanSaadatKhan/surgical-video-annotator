@@ -1,6 +1,73 @@
 # Surgical Video Annotator
 
-Automated surgical video annotation pipeline combining fine-tuned specialized detectors with foundation models, active learning, and rigorous evaluation.
+Automated bounding box annotation pipeline for laparoscopic surgery videos combining fine-tuned YOLOv8 with SAM 2 for pixel-level segmentation and tracking.
+
+## Results Summary
+
+Fine-tuned YOLOv8 on CholecSeg8k dataset (8080 images, 12 classes: 7 anatomical structures + 5 surgical instruments).
+
+**Performance on held-out validation set (808 images):**
+
+| Metric | Value |
+|--------|-------|
+| mAP@0.5 | **94.3%** |
+| mAP@0.5:0.95 | 77.8% |
+| Precision (peak) | 100% |
+| Recall | 96% |
+| F1 Score (peak) | 93% |
+
+### Baseline Comparison
+
+| Detector | mAP@0.5 |
+|----------|---------|
+| Zero-shot Grounding DINO | 3.4% |
+| Fine-tuned YOLOv8 | **94.3%** |
+| **Improvement** | **28x** |
+
+### Per-Class Performance
+
+![Precision-Recall Curve](docs/02_metrics/BoxPR_curve.png)
+
+All 12 classes achieved 80%+ AP@0.5:
+- Liver Ligament: 99.5%
+- Grasper: 99.2%
+- Hook: 98.5%
+- Abdominal Wall: 98.3%
+- Liver: 98.0%
+- Fat: 98.0%
+- Gastrointestinal Tract: 97.6%
+- Gallbladder: 96.1%
+- Cystic Duct: 95.5%
+- Hepatic Vein: 87.1%
+- Connective Tissue: 83.4%
+- Blood: 80.5%
+
+### Classification Accuracy
+
+![Confusion Matrix](docs/02_metrics/confusion_matrix_normalized.png)
+
+Diagonal shows correct classification rate per class (78-100%).
+
+### Training Convergence
+
+![Training Curves](docs/02_metrics/training_curves_v2.png)
+
+## Sample Predictions
+
+**Ground truth vs YOLO predictions on validation set:**
+
+| Ground Truth | YOLO Predictions |
+|--------------|-------------------|
+| ![Ground Truth](docs/03_predictions_samples/val_batch0_labels.jpg) | ![Predictions](docs/03_predictions_samples/val_batch0_pred.jpg) |
+
+## End-to-End Pipeline Demo
+
+Full pipeline running on real laparoscopic cholecystectomy video (unseen source):
+
+![Demo Frame](docs/04_video_demo/annotated_000144 (1).jpg)
+
+More samples: [`docs/04_video_demo/`](docs/04_video_demo/)  
+Full annotated video: [`docs/04_video_demo/annotated_web.mp4`](docs/04_video_demo/annotated_web.mp4)
 
 ## The Problem
 
@@ -8,13 +75,11 @@ Training AI models for surgical video analysis requires large, high-quality anno
 
 ## The Solution
 
-A multi-model pipeline that combines the strengths of specialized and general-purpose models:
+A multi-model pipeline combining specialized and general-purpose models:
 
-**Primary detector: Fine-tuned YOLOv8** for accurate detection of known surgical instruments and organs (trained on CholecSeg8k)
-
-**Fallback: Grounding DINO** for open-vocabulary detection of unusual items via text prompts
-
-**Segmentation: SAM 2** for pixel-level masks with native video propagation
+- **Primary detector: Fine-tuned YOLOv8** for accurate detection of surgical instruments and organs (trained on CholecSeg8k)
+- **Fallback: Grounding DINO** for open-vocabulary detection of unusual items via text prompts
+- **Segmentation: SAM 2** for pixel-level masks with native video propagation
 
 ## Architecture
 
@@ -56,20 +121,6 @@ Fine-tuned YOLOv8          Grounding DINO (fallback)
 Streamlit Review              Active Learning Loop
 ```
 
-## Evaluation Results
-
-Tested on 200 images from CholecSeg8k (13 classes: 2 instruments + 10 organs/tissues).
-
-**Baseline (Grounding DINO zero-shot):**
-- Overall mAP@0.5: 4.5%
-- Only grasper detection worked (54.5% AP)
-- All other classes: 0% AP
-
-**Fine-tuned YOLOv8 (after training on 2000 CholecSeg8k images):**
-- See notebook `03_train_and_evaluate.ipynb` for measured results
-- Expected significant improvement across all classes
-
-The evaluation script produces direct side-by-side comparison metrics.
 
 ## Key Features
 
@@ -103,7 +154,7 @@ pip install git+https://github.com/facebookresearch/sam2.git
 ### Complete workflow (recommended for first-time users)
 
 Open `notebooks/03_train_and_evaluate.ipynb` in Colab and run all cells. This:
-1. Downloads CholecSeg8k
+1. Downloads CholecSeg8k (8080 images)
 2. Trains YOLOv8 on surgical data
 3. Evaluates against Grounding DINO baseline
 4. Shows side-by-side comparison
@@ -111,7 +162,7 @@ Open `notebooks/03_train_and_evaluate.ipynb` in Colab and run all cells. This:
 ### Training YOLO on surgical data
 
 ```bash
-python scripts/train_yolo.py --n-samples 2000 --epochs 50
+python scripts/train_yolo.py --n-samples 8080 --epochs 80
 ```
 
 ### Comparing baseline vs fine-tuned
@@ -126,12 +177,6 @@ python scripts/compare_detectors.py --yolo-weights yolo_models/surgical_yolov8/w
 python -m src.pipeline path/to/surgical_video.mp4
 ```
 
-### With ground truth evaluation
-
-```bash
-python -m src.pipeline video.mp4 --ground-truth gt_annotations.json
-```
-
 ### Review interface
 
 ```bash
@@ -143,20 +188,16 @@ streamlit run app.py
 All behavior controlled via `config.yaml`. Key settings:
 
 ```yaml
-# Which detector to use
 detector_type: "yolo"           # "yolo" | "grounding_dino" | "ensemble"
 
-# YOLO settings (primary)
 yolo_detection:
   weights_path: "yolo_models/surgical_yolov8/weights/best.pt"
   confidence_threshold: 0.25
 
-# Grounding DINO (fallback)
-detection:
+detection:  # Grounding DINO fallback
   prompts: ["grasper", "hook", ...]
   box_threshold: 0.25
 
-# Ensemble mode
 ensemble:
   use_dino_fallback: true
   merge_iou_threshold: 0.5
@@ -203,7 +244,7 @@ pytest tests/ -v
 
 ## Author
 
-Subhan Saadat Khan
+**Subhan Saadat Khan**  
 M.Sc. Data Science, FAU Erlangen-Nuremberg
 
 Built to demonstrate end-to-end ML engineering: data pipelines, model training, evaluation, and production integration.
