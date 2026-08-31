@@ -1,0 +1,38 @@
+# Core ML
+torch>=2.1.0
+torchvision>=0.16.0
+
+# Foundation Models
+transformers>=4.40.0
+
+# Fine-tuned Detection
+ultralytics>=8.0.0
+
+# Dataset loading
+huggingface-hub>=0.20.0
+
+# Video and Image Processing
+opencv-python>=4.8.0
+Pillow>=10.0.0
+supervision>=0.19.0
+
+# Annotation and Visualization
+pycocotools>=2.0.7
+matplotlib>=3.7.0
+
+# Tracking and math
+numpy>=1.24.0
+scipy>=1.10.0
+
+# Configuration
+PyYAML>=6.0
+
+# Review Interface
+streamlit>=1.30.0
+
+# Utilities
+tqdm>=4.65.0
+loguru>=0.7.0
+
+# For SAM 2 video propagation (optional):
+#   pip install git+https://github.com/facebookresearch/sam2.git

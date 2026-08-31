@@ -1,0 +1,116 @@
+# ============================================================
+# Surgical Video Annotator - Configuration
+# ============================================================
+
+# Which detector to use as primary:
+# - "grounding_dino": Zero-shot foundation model (broad but inaccurate on surgical footage)
+# - "yolo": Fine-tuned YOLOv8 (accurate on trained classes, requires training first)
+# - "ensemble": Both models combined (YOLO primary, DINO fallback for unusual items)
+detector_type: "yolo"
+
+# Video processing
+video:
+  frame_extraction_fps: 2
+  max_frames: null
+  resize_width: 1280
+  resize_height: 720
+  supported_formats: [".mp4", ".avi", ".mkv", ".mov"]
+
+# Smart temporal sampling
+temporal_sampling:
+  mode: "adaptive"                # "fixed", "adaptive", "keyframe"
+  min_interval_sec: 0.2
+  max_interval_sec: 2.0
+  motion_weight: 0.6
+  scene_change_weight: 0.4
+  scene_change_threshold: 0.35
+  motion_threshold: 0.05
+
+# YOLO Detection (primary - use after training)
+yolo_detection:
+  weights_path: "yolo_models/surgical_yolov8/weights/best.pt"
+  confidence_threshold: 0.25
+  iou_threshold: 0.5
+  image_size: 640
+  device: "cuda"
+
+# Grounding DINO (fallback / baseline)
+detection:
+  model_id: "IDEA-Research/grounding-dino-base"
+  prompts:
+    - "grasper"
+    - "scissors"
+    - "hook"
+    - "clip"
+    - "irrigator"
+    - "cautery"
+  box_threshold: 0.25
+  text_threshold: 0.20
+  nms_threshold: 0.5
+  device: "cuda"
+
+# Ensemble settings (when detector_type is "ensemble")
+ensemble:
+  use_dino_fallback: true
+  dino_only_if_yolo_empty: false    # If true, only run DINO when YOLO found nothing
+  merge_iou_threshold: 0.5
+
+# SAM 2 segmentation
+segmentation:
+  model_id: "facebook/sam2.1-hiera-large"
+  points_per_side: null
+  multimask_output: false
+  mask_threshold: 0.5
+  device: "cuda"
+
+# SAM 2 video propagation
+video_propagation:
+  enabled: true
+  prompt_interval: 5
+
+# IoU tracking (fallback when video_propagation is off)
+tracking:
+  enabled: true
+  iou_threshold: 0.3
+  max_age: 15
+  min_hits: 3
+  max_tracks: 50
+
+# Quality validation
+quality:
+  min_confidence: 0.35
+  min_bbox_area: 100
+  max_bbox_area_ratio: 0.8
+  overlap_iou_threshold: 0.7
+  temporal_consistency_window: 5
+  flag_sudden_disappearance: true
+
+# Active learning
+active_learning:
+  enabled: true
+  correction_dir: "corrections"
+  max_samples_per_iteration: 100
+  uncertainty_threshold: 0.4
+  low_conf_threshold: 0.5
+  high_conf_threshold: 0.8
+  boundary_margin: 0.1
+
+# Ground truth evaluation
+evaluation:
+  iou_thresholds: [0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95]
+  primary_iou_threshold: 0.5
+
+# Export
+export:
+  format: "coco"
+  output_dir: "output"
+  save_visualizations: true
+  save_masks: true
+  visualization_alpha: 0.4
+
+# Streamlit review app
+review:
+  items_per_page: 20
+  enable_edit: true
+  enable_approve_reject: true
+  auto_save: true
